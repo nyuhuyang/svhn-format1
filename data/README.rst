@@ -1,0 +1,1 @@
+The SVHN data resides in this folder.

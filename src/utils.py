@@ -11,6 +11,7 @@ import h5py
 from PIL import Image
 import six.moves.cPickle as pickle
 from six.moves import urllib
+import shutil
 
 import theano
 import theano.tensor as T
@@ -91,7 +92,7 @@ def load_data(theano_shared=True):
                 '..',
                 'data',
                 folder_name)
-            if (not os.path.isfile(new_path)):
+            if (not os.path.exists(new_path)):
                 tar.extractall(os.path.join(
                     os.path.split(__file__)[0],
                     '..',
@@ -185,13 +186,12 @@ def load_data(theano_shared=True):
             p.close()
 
             tar.close()
+            # clean up (delete test/train folders that were used to create the pickled data)
+            shutil.rmtree(os.path.join(os.path.split(__file__)[0],  '..', 'data', data_type))
 
         check_file(data_type)
 
-    # format_data('train.tar.gz')
-    # format_data('test.tar.gz')
-
-    # Load the dataset
+    # This check will run everytime load_data() is called
 
     if (not os.path.isfile(os.path.join(os.path.split(__file__)[0],  '..', 'data', 'trainpkl.gz'))):
         format_data('train.tar.gz')
@@ -227,29 +227,24 @@ def load_data(theano_shared=True):
             return numpy.array(labels)
 
         y = process_sequence(data['y'])
-        # y = data['y'].flatten()
-        # y[y == 10] = 0
         return (X,y)
 
     train_set = convert_data_format(train_set)
     test_set = convert_data_format(test_set)
 
-    # Downsample the training dataset if specified
     train_set_len = len(train_set[1])
-    # if ds_rate is not None:
-    #     train_set_len = int(train_set_len // ds_rate)
-    #     train_set = [x[:train_set_len] for x in train_set]
 
-    # Extract validation dataset from train dataset
+    # Extract validation dataset from train dataset (10% of the train_set)
     valid_set = [x[-(train_set_len//10):] for x in train_set]
     train_set = [x[:-(train_set_len//10)] for x in train_set]
 
-    # train_set, valid_set, test_set format: tuple(input, target)
-    # input is a numpy.ndarray of 2 dimensions (a matrix)
-    # where each row corresponds to an example. target is a
-    # numpy.ndarray of 1 dimension (vector) that has the same length as
-    # the number of rows in the input. It should give the target
-    # to the example with the same index in the input.
+    # train_set, valid_set, test_set each contain a list [flattened image, sequence].
+    # The 'flattened image' part of the list is a 2D numpy array where each row
+    # corresponds to a 32x32x3 image. The sequence is a 2D numpy array of the
+    # number represented in the image. The first element in the sequence is the
+    # length of the number (where 0 = a 1 digit number), the second element in
+    # the sequence is the first digit of the number (where 0 means no digit
+    # present and 10 = 0), and so on.
 
     if theano_shared:
         test_set_x, test_set_y = shared_dataset(test_set)
@@ -264,6 +259,5 @@ def load_data(theano_shared=True):
 
     return rval
 
-# print not os.path.isfile(os.path.join(os.path.split(__file__)[0],  '..', 'data', 'trainpkl.gz'))
 if __name__ == '__main__':
     load_data(theano_shared=False)
